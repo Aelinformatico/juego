@@ -55,13 +55,18 @@ const sfx = {
 // ------------------------------------------------------------
 //  Conexión WebSocket
 // ------------------------------------------------------------
+const VERCEL_GAME_SERVER = 'https://juego-de-8-bits.onrender.com';
+
 function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
 }
 
 function connect() {
   const configuredServer = new URLSearchParams(location.search).get('server');
-  const serverUrl = new URL(configuredServer || location.origin);
+  const defaultServer = location.hostname.endsWith('.vercel.app')
+    ? VERCEL_GAME_SERVER
+    : location.origin;
+  const serverUrl = new URL(configuredServer || defaultServer);
   const useSecureSocket = location.protocol === 'https:' ||
     serverUrl.protocol === 'https:' || serverUrl.protocol === 'wss:';
   serverUrl.protocol = useSecureSocket ? 'wss:' : 'ws:';
@@ -91,10 +96,14 @@ function onWelcome(m) {
 
   const list = $('#addrList');
   list.replaceChildren();
-  const ips = m.ips.length ? m.ips : [location.hostname];
-  for (const ip of ips) {
+  const isHosted = location.hostname.endsWith('.vercel.app') ||
+    location.hostname.endsWith('.onrender.com');
+  const addresses = isHosted
+    ? [location.host]
+    : (m.ips.length ? m.ips.map(ip => `${ip}:${m.port}`) : [`${location.hostname}:${m.port}`]);
+  for (const address of addresses) {
     const d = document.createElement('div');
-    d.textContent = `${ip}:${m.port}`;
+    d.textContent = address;
     list.appendChild(d);
   }
 
