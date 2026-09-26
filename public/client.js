@@ -60,7 +60,12 @@ function send(obj) {
 }
 
 function connect() {
-  ws = new WebSocket(`ws://${location.host}`);
+  const configuredServer = new URLSearchParams(location.search).get('server');
+  const serverUrl = new URL(configuredServer || location.origin);
+  const useSecureSocket = location.protocol === 'https:' ||
+    serverUrl.protocol === 'https:' || serverUrl.protocol === 'wss:';
+  serverUrl.protocol = useSecureSocket ? 'wss:' : 'ws:';
+  ws = new WebSocket(serverUrl);
   ws.onopen = () => { $('#offline').hidden = true; };
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
