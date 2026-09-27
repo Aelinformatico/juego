@@ -63,10 +63,12 @@ function send(obj) {
 
 function connect() {
   const configuredServer = new URLSearchParams(location.search).get('server');
+  const hostToken = new URLSearchParams(location.hash.slice(1)).get('host');
   const defaultServer = location.hostname.endsWith('.vercel.app')
     ? VERCEL_GAME_SERVER
     : location.origin;
   const serverUrl = new URL(configuredServer || defaultServer);
+  if (hostToken) serverUrl.searchParams.set('host', hostToken);
   const useSecureSocket = location.protocol === 'https:' ||
     serverUrl.protocol === 'https:' || serverUrl.protocol === 'wss:';
   serverUrl.protocol = useSecureSocket ? 'wss:' : 'ws:';

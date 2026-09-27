@@ -7,10 +7,12 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const dgram = require('dgram');
+const crypto = require('crypto');
+const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 
 // ---------- Configuración ----------
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3001;
 const TICK_MS = 1000 / 30;          // 30 actualizaciones por segundo
 const TILE = 16;
 const MAX_SHOTS = 10;               // 10 tiros como máximo por jugador y partida
@@ -105,6 +107,23 @@ function cleanName(raw) {
   let final = n, i = 2;
   while (taken.has(final.toLowerCase())) final = `${n.slice(0, NAME_MAX - 2)}${i++}`;
   return final;
+}
+
+function isLocalOrigin(origin) {
+  if (!origin) return false;
+  try {
+    return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function hasValidHostToken(token) {
+  const expected = process.env.HOST_TOKEN;
+  if (!expected || !token) return false;
+  const candidate = Buffer.from(token);
+  const configured = Buffer.from(expected);
+  return candidate.length === configured.length && crypto.timingSafeEqual(candidate, configured);
 }
 
 // ---------- Estado del juego ----------
@@ -293,7 +312,8 @@ const wss = new WebSocketServer({ server, maxPayload: 1024 });
 
 wss.on('connection', (ws, req) => {
   const addr = req.socket.remoteAddress || '';
-  const isHost = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(addr);
+  const hostToken = new URL(req.url, 'http://localhost').searchParams.get('host');
+  const isHost = isLocalOrigin(req.headers.origin) || hasValidHostToken(hostToken);
   const p = {
     id: nextId++, ws, name: '', joined: false, isHost,
     color: COLORS[colorIdx++ % COLORS.length],
@@ -347,6 +367,7 @@ wss.on('connection', (ws, req) => {
 });
 
 // ---------- Bucle principal ----------
+
 setInterval(() => {
   update();
   const msg = snapshot();
@@ -358,7 +379,6 @@ setInterval(() => {
 
 detectMainIP();
 setInterval(detectMainIP, 30000);
-
 server.listen(PORT, '0.0.0.0', async () => {
   await new Promise(r => setTimeout(r, 300));   // da tiempo a detectar la IP principal
   const ips = lanIPs();
@@ -367,8 +387,16 @@ server.listen(PORT, '0.0.0.0', async () => {
   console.log('  ==========================================\n');
   console.log('  PROFESOR (host) abre en este equipo:');
   console.log(`     http://localhost:${PORT}\n`);
+  if (process.env.npm_lifecycle_event === 'dev') {
+    const command = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+    const args = process.platform === 'win32'
+      ? ['/c', 'start', '', `http://localhost:${PORT}`]
+      : [`http://localhost:${PORT}`];
+    spawn(command, args, { detached: true, stdio: 'ignore' }).unref();
+  }
   console.log('  ALUMNOS abren en su navegador:');
   if (ips.length) ips.forEach(ip => console.log(`     http://${ip}:${PORT}`));
   else console.log('     (no se ha encontrado ninguna IP de red)');
   console.log('\n  Pulsa Ctrl+C para cerrar el servidor.\n');
 });
+

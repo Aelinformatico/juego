@@ -10,6 +10,11 @@ Juego de 8 bits para el aula en el que todos luchan contra todos y solo puede qu
 
 La primera vez, Windows pedirá permiso en el firewall para Node.js: marca **Redes privadas** y acepta.
 
+## Despliegue en Vercel y Render
+1. En Render, crea la variable de entorno `HOST_TOKEN` con un valor aleatorio largo. Puedes generar uno con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+2. Los alumnos entran en la URL pública de Vercel sin parámetros.
+3. El profesor abre esa misma URL seguida de `#host=VALOR_DE_HOST_TOKEN` para mostrar el panel de control. El fragmento no se envía a Vercel; el cliente lo usa para autenticarse con Render.
+
 ## Reglas
 - 3 vidas y **10 tiros como máximo** por partida.
 - A los 25 s la zona roja empieza a cerrarse, y fuera de ella pierdes vida. Así la partida siempre termina, aunque todos se queden sin balas.
